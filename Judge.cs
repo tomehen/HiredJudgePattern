@@ -14,6 +14,10 @@ namespace HiredJudge
     public class Field<TState>
         where TState : struct, Enum
     {
+        // フィールドからのステイト変更は禁止、あくまで参照のみ
+        // ただし、ジャッジは直接変更してよい。
+        // 雇い主はジャッジのステイト変更関数から行える。
+        // 実装でジャッジのみ変更できるように防げないため、変更するエラーとしている。
         public TState State { get; set; }
     }
 
@@ -29,6 +33,7 @@ namespace HiredJudge
         public interface IActionRule
         {
             void OnStay(TField field);
+            void OnExit(TField field);
             void OnTransition(TField field, TState from, TState to);
         }
 
@@ -61,7 +66,7 @@ namespace HiredJudge
             if (!State.Equals(_prevState)
                 && !_isStateChanged)
             {
-                throw new InvalidOperationException($"ステイト遷移が不正: {_prevState}から{State}遷移");
+                throw new InvalidOperationException($"ステイト遷移が不正: {_prevState}から{State}へ");
             }
             _isStateChanged = false;
             
@@ -82,22 +87,25 @@ namespace HiredJudge
         public void ChangeState(TState next)
         {// 雇い主がジャッジにステイトを変更するための窓口
             var current = State;
+            // 現在のステイトの解放処理
+            _actionRuleDictionary[current].OnExit(_field);
             _field.State = next;
 
             // 次のステイトの初期化処理
             _actionRuleDictionary[next].OnTransition(_field, current, next);
-            
             _prevState = current;
             _isStateChanged = true;
         }
     }
 
+    // 雇い主のインターフェースだが必須ではない
     public interface IEmployer
     {
         bool IsChangeable();
         void ChangeState();
     }
 
+    // 雇い主でルールを辞書に正しく登録してるか確認するためのもの
     public static class RuleExistChecker<TState, TField>
         where TState : struct, Enum
         where TField : Field<TState>
@@ -147,6 +155,7 @@ namespace HiredJudge
 // ジャッジはフィールドとルールを雇い主からもらうコンテナとなり、ルールを用いて処理を行います。
 // 雇い主はフィールドとルールの所有者となり、ジャッジに仕事をさせる存在となります。
 // 逆にいうとジャッジを使う存在であれば、それは雇い主となります。
+// 雇い主はフィールドとルールの責任者であるため、ルールのチェックが義務です。
 // ジャッジを使用している雇い主は、フィールドの中身を直接変更することが、唯一の制約なります。
 // ただしジャッジには外からステイト変更ができる窓口があるため、ステイト単位での操作が雇い主からも可能です。
 // 雇い主はフィールドを書き換えない限りは参照は許されるので、監視もできます。
@@ -166,6 +175,7 @@ namespace HiredJudge
 // The Judge acts as a container that receives a Field and Rules from an Employer, and executes processing using those Rules.
 // The Employer is the owner of the Field and the Rules, and is the entity that assigns work to the Judge.
 // In other words, any entity that uses a Judge becomes an Employer.
+// As the employer is responsible for the rules, checking the rules is mandatory.
 // The only constraint imposed on an Employer using a Judge is that it must not directly modify the contents of the Field.
 // However, since the Judge provides an external interface for changing the State, the Employer is allowed to operate at the State level.
 // As long as the Employer does not modify the Field, reading and observing its contents is permitted.
