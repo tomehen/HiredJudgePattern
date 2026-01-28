@@ -105,39 +105,57 @@ namespace HiredJudge
         void ChangeState();
     }
 
-    // 雇い主でルールを辞書に正しく登録してるか確認するためのもの
-    public static class RuleExistChecker<TState, TField>
+    public class Employer<TState, TField>
         where TState : struct, Enum
         where TField : Field<TState>
     {
-        public static bool IsAll(
-            Dictionary<TState, Judge<TState, TField>.IConditionRule> dictionary)
-        {
-            foreach (var value in Enum.GetValues(typeof(TState)))
-            {
-                var state = (TState)value;
-                if (!dictionary.ContainsKey(state))
-                {
-                    return false;
-                }
-            }
+        protected TField _field;
+        protected Dictionary<TState, Judge<TState, TField>.IConditionRule> _conditionRuleDictionary;
+        protected Dictionary<TState, Judge<TState, TField>.IActionRule> _actionRuleDictionary;
+        protected Judge<TState, TField> _judge;
 
-            return true;
+        protected Employer(TField field)
+        {
+            _field = field;
         }
 
-        public static bool IsAll(
-            Dictionary<TState, Judge<TState, TField>.IActionRule> dictionary)
+        protected void CreateJudge()
+        {
+            CheckConditionRuleExist(_conditionRuleDictionary);
+            CheckActionRuleExist(_actionRuleDictionary);
+            _judge = new Judge<TState, TField>(_field, _conditionRuleDictionary, _actionRuleDictionary);
+        }
+
+        void CheckConditionRuleExist(
+            Dictionary<TState, Judge<TState, TField>.IConditionRule> dictionary
+        )
         {
             foreach (var value in Enum.GetValues(typeof(TState)))
             {
                 var state = (TState)value;
                 if (!dictionary.ContainsKey(state))
                 {
-                    return false;
+                    throw new InvalidOperationException(
+                        $"{state}にConditionRuleが登録されていません。"
+                    );
                 }
             }
+        }
 
-            return true;
+        void CheckActionRuleExist(
+            Dictionary<TState, Judge<TState, TField>.IActionRule> dictionary
+        )
+        {
+            foreach (var value in Enum.GetValues(typeof(TState)))
+            {
+                var state = (TState)value;
+                if (!dictionary.ContainsKey(state))
+                {
+                    throw new InvalidOperationException(
+                        $"{state}にActionRuleが登録されていません。"
+                    );
+                }
+            }
         }
     }
 }
