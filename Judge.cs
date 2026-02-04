@@ -11,14 +11,24 @@ using System.Collections.Generic;
 
 namespace HiredJudge
 {
-    public class Field<TState>
+    public class Field<TState> : IEqualityComparer<TState>
         where TState : struct, Enum
     {
         // フィールドからのステイト変更は禁止、あくまで参照のみ
         // ただし、ジャッジは直接変更してよい。
         // 雇い主はジャッジのステイト変更関数から行える。
-        // 実装でジャッジのみ変更できるように防げないため、変更するエラーとしている。
+        // 実装でジャッジのみ変更できるように防げないため、変更エラーとしている。
         public TState State { get; set; }
+
+        public bool Equals(TState a, TState b)
+        {
+            return a.Equals(b);
+        }
+
+        public int GetHashCode(TState state)
+        {
+            return state.GetHashCode();
+        }
     }
 
     public sealed class Judge<TState, TField>
@@ -63,7 +73,7 @@ namespace HiredJudge
 
         public void ExecuteRule()
         {
-            if (!State.Equals(_prevState)
+            if (!_field.Equals(State, _prevState)
                 && !_isStateChanged)
             {
                 throw new InvalidOperationException($"ステイト遷移が不正: {_prevState}から{State}へ");
